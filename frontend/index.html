@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Microshop</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
+    section { border: 1px solid #ccc; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; }
+    h2 { margin-top: 0; }
+    input, button { padding: .4rem .6rem; margin: .2rem .2rem .2rem 0; }
+    table { border-collapse: collapse; width: 100%; margin-top: .5rem; }
+    th, td { border: 1px solid #ddd; padding: .3rem .5rem; text-align: left; }
+    .err { color: #b00020; }
+  </style>
+</head>
+<body>
+  <h1>Microshop</h1>
+  <p class="err" id="err"></p>
+
+  <section>
+    <h2>Users</h2>
+    <form id="userForm">
+      <input name="name" placeholder="Name" required>
+      <input name="email" type="email" placeholder="Email" required>
+      <button>Add user</button>
+    </form>
+    <table id="users"></table>
+  </section>
+
+  <section>
+    <h2>Products</h2>
+    <form id="productForm">
+      <input name="name" placeholder="Name" required>
+      <input name="price" type="number" step="0.01" min="0" placeholder="Price" required>
+      <button>Add product</button>
+    </form>
+    <table id="products"></table>
+  </section>
+
+  <section>
+    <h2>Orders</h2>
+    <form id="orderForm">
+      <input name="userId" type="number" min="1" placeholder="User ID" required>
+      <input name="productId" type="number" min="1" placeholder="Product ID" required>
+      <input name="quantity" type="number" min="1" placeholder="Qty" required>
+      <button>Place order</button>
+    </form>
+    <table id="orders"></table>
+  </section>
+
+<script>
+  const err = document.getElementById('err');
+  // Gateway ka address. Default: same server par /api/. Alag ho to: index.html?api=http://localhost:8080/api/
+  const API = new URLSearchParams(location.search).get('api') || '/api/';
+
+  async function api(path, options) {
+    const res = await fetch(API + path, options);
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || ('Error ' + res.status));
+    return body;
+  }
+
+  function render(id, rows, cols) {
+    const t = document.getElementById(id);
+    t.innerHTML = '<tr>' + cols.map(c => '<th>' + c + '</th>').join('') + '</tr>' +
+      rows.map(r => '<tr>' + cols.map(c => '<td>' + (r[c] ?? '') + '</td>').join('') + '</tr>').join('');
+  }
+
+  async function load() {
+    try {
+      render('users', await api('users'), ['id', 'name', 'email']);
+      render('products', await api('products'), ['id', 'name', 'price']);
+      render('orders', await api('orders'), ['id', 'userId', 'productId', 'quantity', 'total']);
+      err.textContent = '';
+    } catch (e) { err.textContent = e.message; }
+  }
+
+  function bind(formId, path, toBody) {
+    document.getElementById(formId).addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      try {
+        await api(path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(toBody(new FormData(ev.target)))
+        });
+        ev.target.reset();
+        err.textContent = '';
+      } catch (e) { err.textContent = e.message; }
+      load();
+    });
+  }
+
+  bind('userForm', 'users', f => ({ name: f.get('name'), email: f.get('email') }));
+  bind('productForm', 'products', f => ({ name: f.get('name'), price: Number(f.get('price')) }));
+  bind('orderForm', 'orders', f => ({ userId: Number(f.get('userId')), productId: Number(f.get('productId')), quantity: Number(f.get('quantity')) }));
+
+  load();
+</script>
+</body>
+</html>
