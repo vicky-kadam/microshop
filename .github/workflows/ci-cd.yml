@@ -4,6 +4,9 @@ on:
   push:
     branches: [ "main" ]
 
+env:
+  DOCKERHUB_USER: vickykadam
+
 jobs:
   prepare:
     runs-on: ubuntu-latest
@@ -34,14 +37,14 @@ jobs:
 
       - uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ env.DOCKERHUB_USER }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
       - uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.service }}
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service }}:${{ needs.prepare.outputs.tag }}
+          tags: ${{ env.DOCKERHUB_USER }}/${{ matrix.service }}:${{ needs.prepare.outputs.tag }}
 
   deploy:
     needs: [ prepare, build-test-push ]
@@ -65,7 +68,7 @@ jobs:
 
       - name: Image tag lagao
         run: |
-          $user = "${{ secrets.DOCKERHUB_USERNAME }}"
+          $user = "${{ env.DOCKERHUB_USER }}"
           $tag = "${{ needs.prepare.outputs.tag }}"
           Get-ChildItem k8s -Filter *.yml | ForEach-Object {
             (Get-Content $_.FullName) -replace "image: $user/([a-z-]+):1", "image: $user/`$1:$tag" | Set-Content $_.FullName
